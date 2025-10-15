@@ -1,0 +1,12 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - postgresql
+  - postgresql-contrib
+runcmd:
+  - systemctl enable postgresql
+  - systemctl start postgresql
+  - sudo -u postgres psql -c "CREATE DATABASE ${database_name};"
+  - sudo -u postgres psql -c "CREATE USER ${database_user} WITH ENCRYPTED PASSWORD '${database_password}';"
+  - sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${database_name} TO ${database_user};"

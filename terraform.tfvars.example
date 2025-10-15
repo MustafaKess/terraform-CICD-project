@@ -1,0 +1,61 @@
+# =============================================================================
+# TerraTech Infrastructure Configuration Example
+# Copy this file to terraform.tfvars and customize the values
+# =============================================================================
+
+# Project Configuration
+project_name = "terratech"
+environment  = "dev"
+
+# OpenStack Configuration
+external_network = "ntnu-internal"  # Change to your external network name
+ssh_key_name     = "your-keypair"   # Change to your SSH key name
+
+# Network Configuration (3-Tier Architecture)
+web_tier_cidr = "10.0.1.0/24"
+app_tier_cidr = "10.0.2.0/24"
+db_tier_cidr  = "10.0.3.0/24"
+
+# Virtual Machine Configuration
+frontend_vm_count  = 2
+database_vm_count  = 1
+vm_flavor         = "gx1.1c1r"                              # Change to available flavor
+vm_image          = "Debian 13 (Trixie) stable amd64"       # Change to available image
+
+# Load Balancer Configuration
+enable_load_balancer = true
+lb_protocol         = "HTTP"
+lb_port             = 80
+lb_method           = "ROUND_ROBIN"
+
+# Storage Configuration
+enable_persistent_storage = true
+persistent_storage_size   = 20
+enable_object_storage    = true
+storage_container_names  = ["app-data", "backups", "logs"]
+
+# Application Configuration
+web_server_type = "nginx"        # Options: nginx, apache
+database_type   = "postgresql"   # Options: postgresql, mysql
+database_name   = "appdb"
+database_user   = "appuser"
+database_password = ...  # Use a strong password or store in environment variables NEVER STORE IN PLAIN TEXT
+
+# Security Configuration
+allowed_ssh_cidrs  = ["0.0.0.0/0"]      # Restrict to your IP range in production
+allowed_http_cidrs = ["0.0.0.0/0"]
+allowed_db_cidrs   = ["10.0.0.0/16"]    # Internal network only
+
+# =============================================================================
+# Production Configuration Example
+# =============================================================================
+
+# For production deployment, consider these values:
+# project_name = "terratech"
+# environment  = "prod"
+# frontend_vm_count = 3
+# database_vm_count = 2
+# vm_flavor = "gx2.2c4r"  # Larger flavor for production
+# persistent_storage_size = 100
+# allowed_ssh_cidrs = ["203.0.113.0/24"]  # Your office IP range
+# database_password = ... #DONT STORE IN PLAIN TEXT :P
