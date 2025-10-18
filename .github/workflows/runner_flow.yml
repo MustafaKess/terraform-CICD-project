@@ -7,9 +7,11 @@ on:
 
 jobs:
   terraform:
-    runs-on: self-hosted
+    # Use your self-hosted runner, optionally with label
+    runs-on: [ self-hosted, terraform-runner ]
 
-    env:  # Set secrets for all steps
+    # Pass OpenStack secrets to all steps
+    env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
       OS_PROJECT_ID: ${{ secrets.OS_PROJECT_ID }}
