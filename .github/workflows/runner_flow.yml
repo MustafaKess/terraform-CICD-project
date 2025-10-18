@@ -7,7 +7,18 @@ on:
 
 jobs:
   terraform:
-    runs-on: [ self-hosted ]
+    runs-on: self-hosted
+
+    env:  # Set secrets for all steps
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_PROJECT_ID: ${{ secrets.OS_PROJECT_ID }}
+      OS_KEYSTONE_URL: ${{ secrets.OS_KEYSTONE_URL }}
+      OS_USER_DOMAIN_NAME: ${{ secrets.OS_USER_DOMAIN_NAME }}
+      OS_PROJECT_DOMAIN_NAME: ${{ secrets.OS_PROJECT_DOMAIN_NAME }}
+      OS_INTERFACE: public
+      OS_ENDPOINT_TYPE: publicURL
+      OS_IDENTITY_API_VERSION: 3
 
     steps:
       - name: Checkout repository
@@ -15,23 +26,6 @@ jobs:
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
-
-      # <-- Add this step to set OpenStack credentials from secrets
-      - name: Set OpenStack credentials
-        run: |
-          export OS_USERNAME=${{ secrets.OS_USERNAME }}
-          export OS_PASSWORD=${{ secrets.OS_PASSWORD }}
-          export OS_PROJECT_ID=${{ secrets.OS_PROJECT_ID }}
-          export OS_KEYSTONE_URL=${{ secrets.OS_KEYSTONE_URL }}
-          export OS_USER_DOMAIN_NAME=${{ secrets.OS_USER_DOMAIN_NAME }}
-          export OS_PROJECT_DOMAIN_NAME=${{ secrets.OS_PROJECT_DOMAIN_NAME }}
-          export OS_INTERFACE="public"
-          export OS_ENDPOINT_TYPE="publicURL"
-          export OS_IDENTITY_API_VERSION=3
-
-          # Get token automatically
-          export OS_TOKEN=$(openstack token issue -f value -c id)
-          export OS_AUTH_TYPE="token"
 
       - name: Initialize Terraform
         run: terraform init
