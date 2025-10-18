@@ -231,9 +231,7 @@ variable "database_user" {
   default     = "appuser"
 }
 
-variable "database_password" {
-  description = "Database password"
-  type        = string
-  sensitive   = true
-  default     = "changeme123!"
+
+variable "db_password" {
+  type = string
 }

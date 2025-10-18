@@ -17,7 +17,7 @@ locals {
   database_cloud_init = templatefile("${path.module}/cloud-init/database-${var.database_type}.sh", {
     database_name     = var.database_name
     database_user     = var.database_user
-    database_password = var.database_password
+    database_password = var.db_password
   })
 }
 
