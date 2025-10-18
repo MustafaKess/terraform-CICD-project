@@ -14,10 +14,10 @@ jobs:
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
-      OS_PROJECT_ID: ${{ secrets.OS_PROJECT_ID }}
-      OS_KEYSTONE_URL: ${{ secrets.OS_KEYSTONE_URL }}
-      OS_USER_DOMAIN_NAME: NTNU
-      OS_PROJECT_DOMAIN_NAME: NTNU
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+      OS_USERDOMAIN_NAME: NTNU
+      OS_DOMAIN_NAME: NTNU
       OS_INTERFACE: public
       OS_ENDPOINT_TYPE: publicURL
       OS_IDENTITY_API_VERSION: 3
