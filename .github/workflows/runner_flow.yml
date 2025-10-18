@@ -33,4 +33,5 @@ jobs:
         run: terraform init
 
       - name: Plan Terraform
-        run: terraform plan -var-file="environments/dev.tfvars"
+      - run: terraform plan -var-file="terraform.tfvars.example"
+
