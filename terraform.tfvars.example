@@ -6,8 +6,8 @@ project_name = "terratech"
 environment  = "dev"
 
 # OpenStack Configuration
-external_network = "default"         # Change if your external network has a different name
-ssh_key_name     = "mustafke-key"    # Your actual keypair name in Horizon
+external_network = "ntnu-internal"
+ssh_key_name     = "my-keypair"
 
 # Network Configuration (3-Tier Architecture)
 web_tier_cidr = "10.0.1.0/24"
