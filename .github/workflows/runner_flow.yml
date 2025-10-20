@@ -53,5 +53,3 @@ jobs:
       - name: Plan Staging
         run: terraform plan -var-file="tfvars/staging.tfvars"
 
-      - name: Plan Prod
-        run: terraform plan -var-file="tfvars/prod.tfvars"
