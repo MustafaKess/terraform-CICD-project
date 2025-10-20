@@ -231,7 +231,8 @@ variable "database_user" {
   default     = "appuser"
 }
 
-
 variable "db_password" {
-  type = string
+  description = "Database password (injected from environment variable OS_PASSWORD)"
+  type        = string
+  sensitive   = true
 }
