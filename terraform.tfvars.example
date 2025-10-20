@@ -37,7 +37,7 @@ web_server_type   = "nginx"
 database_type     = "postgresql"
 database_name     = "appdb"
 database_user     = "appuser"
-database_password = var.db_password   # Passed from GitHub secret
+
 
 # Security Configuration
 allowed_ssh_cidrs  = ["0.0.0.0/0"]      # Allow SSH from anywhere (for testing only)
