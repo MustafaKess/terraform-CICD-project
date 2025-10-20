@@ -18,22 +18,12 @@ jobs:
 
       - name: Validate required secrets
         run: |
-          if [ -z "${{ secrets.OS_USERNAME }}" ]; then
-            echo "Missing OS_USERNAME secret"
-            exit 1
-          fi
-          if [ -z "${{ secrets.OS_PASSWORD }}" ]; then
-            echo "Missing OS_PASSWORD secret"
-            exit 1
-          fi
-          if [ -z "${{ secrets.OS_TENANT_ID }}" ]; then
-            echo "Missing OS_TENANT_ID secret"
-            exit 1
-          fi
-          if [ -z "${{ secrets.OS_AUTH_URL }}" ]; then
-            echo "Missing OS_AUTH_URL secret"
-            exit 1
-          fi
+          for var in OS_USERNAME OS_PASSWORD OS_TENANT_ID OS_AUTH_URL; do
+            if [ -z "${{ secrets[$var] }}" ]; then
+              echo "Missing $var secret"
+              exit 1
+            fi
+          done
           echo "All required OpenStack secrets are set"
 
   # Stage 2: Terraform Init & Validate
@@ -65,7 +55,7 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-  # Stage 3: Terraform Plan for Dev/Test/Staging
+  # Stage 3: Terraform Plan for Test
   terraform_plan:
     runs-on: [self-hosted, terraform-runner]
     needs: terraform_validate
@@ -95,15 +85,26 @@ jobs:
         run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan -var-file="tfvars/${{ matrix.env }}.tfvars"
+        run: terraform plan -var-file="tfvars/test.tfvars"
 
-  # Stage 4: Manual approval & Production Deploy
+  # Stage 4: Production Deploy
   deploy_prod:
     runs-on: [self-hosted, terraform-runner]
     needs: terraform_plan
     environment:
       name: production
-      # Optional: reviewers can be defined in the GitHub UI for this environment
+    env:
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+      OS_USERDOMAIN_NAME: NTNU
+      OS_DOMAIN_NAME: NTNU
+      OS_INTERFACE: public
+      OS_ENDPOINT_TYPE: publicURL
+      OS_IDENTITY_API_VERSION: 3
+      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
+      TF_VAR_external_network: "ntnu-internal"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
