@@ -1,7 +1,6 @@
 name: Terraform runner_flow
 
-# Workflow phases example from assignment 
-# Develop (before commit) -> Build stage -> Validate (automated test -> manual test stage)  -> Deploy (production deployment)
+# Workflow phases: Develop -> Build -> Validate -> Deploy
 
 on:
   push:
@@ -11,14 +10,8 @@ on:
 jobs:
 
   # Stage 1: Checkout & validate secrets
-
   setup:
-    runs-on: [ self-hosted, terraform-runner ]
-    outputs:
-      OS_USERNAME: ${{ secrets.OS_USERNAME }}
-      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
-      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
-      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+    runs-on: [self-hosted, terraform-runner]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,16 +19,16 @@ jobs:
       - name: Validate required secrets
         run: |
           for var in OS_USERNAME OS_PASSWORD OS_TENANT_ID OS_AUTH_URL; do
-            if [ -z "${!var}" ]; then
-              echo "Missing $var environment variable"
+            if [ -z "${{ secrets.$var }}" ]; then
+              echo "Missing $var secret"
               exit 1
             fi
           done
-          echo "All required OpenStack variables are set"
+          echo "All required OpenStack secrets are set"
 
   # Stage 2: Terraform Init & Validate
   terraform_validate:
-    runs-on: [ self-hosted, terraform-runner ]
+    runs-on: [self-hosted, terraform-runner]
     needs: setup
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
@@ -64,11 +57,11 @@ jobs:
 
   # Stage 3: Terraform Plan for Dev/Test/Staging
   terraform_plan:
-    runs-on: [ self-hosted, terraform-runner ]
+    runs-on: [self-hosted, terraform-runner]
     needs: terraform_validate
     strategy:
       matrix:
-        env: [ dev, test, staging ]
+        env: [dev, test, staging]
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -94,12 +87,13 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -var-file="tfvars/${{ matrix.env }}.tfvars"
 
-  # Stage 4: Optional Manual Approval for Prod Deploy
-
+  # Stage 4: Manual approval & Production Deploy
   deploy_prod:
-    runs-on: [ self-hosted, terraform-runner ]
+    runs-on: [self-hosted, terraform-runner]
     needs: terraform_plan
-    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.environment_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -110,7 +104,7 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
-      - name: Manual Approval
+      - name: Wait for manual approval
         uses: hmarr/auto-approve-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
