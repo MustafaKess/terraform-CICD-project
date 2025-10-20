@@ -76,7 +76,7 @@ jobs:
     needs: terraform_validate
     strategy:
       matrix:
-        env: [dev, test, staging]
+        env: [test]
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
