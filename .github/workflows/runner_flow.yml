@@ -18,12 +18,22 @@ jobs:
 
       - name: Validate required secrets
         run: |
-          for var in OS_USERNAME OS_PASSWORD OS_TENANT_ID OS_AUTH_URL; do
-            if [ -z "${{ secrets.$var }}" ]; then
-              echo "Missing $var secret"
-              exit 1
-            fi
-          done
+          if [ -z "${{ secrets.OS_USERNAME }}" ]; then
+            echo "Missing OS_USERNAME secret"
+            exit 1
+          fi
+          if [ -z "${{ secrets.OS_PASSWORD }}" ]; then
+            echo "Missing OS_PASSWORD secret"
+            exit 1
+          fi
+          if [ -z "${{ secrets.OS_TENANT_ID }}" ]; then
+            echo "Missing OS_TENANT_ID secret"
+            exit 1
+          fi
+          if [ -z "${{ secrets.OS_AUTH_URL }}" ]; then
+            echo "Missing OS_AUTH_URL secret"
+            exit 1
+          fi
           echo "All required OpenStack secrets are set"
 
   # Stage 2: Terraform Init & Validate
@@ -93,7 +103,7 @@ jobs:
     needs: terraform_plan
     environment:
       name: production
-      url: ${{ steps.deploy.outputs.environment_url }}
+      # Optional: reviewers can be defined in the GitHub UI for this environment
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -103,11 +113,6 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-
-      - name: Wait for manual approval
-        uses: hmarr/auto-approve-action@v2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Terraform Apply Production
         run: terraform apply -var-file="tfvars/prod.tfvars" -auto-approve
