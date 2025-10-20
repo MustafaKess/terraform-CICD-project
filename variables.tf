@@ -61,7 +61,7 @@ variable "web_tier_cidr" {
 }
 
 variable "app_tier_cidr" {
-  description = "CIDR block for app tier subnet"  
+  description = "CIDR block for app tier subnet"
   type        = string
   default     = "10.0.2.0/24"
 }
@@ -201,7 +201,7 @@ variable "web_server_type" {
   description = "Web server type (apache or nginx)"
   type        = string
   default     = "nginx"
-  
+
   validation {
     condition     = contains(["apache", "nginx"], var.web_server_type)
     error_message = "Web server type must be either 'apache' or 'nginx'."
@@ -212,7 +212,7 @@ variable "database_type" {
   description = "Database type (mysql or postgresql)"
   type        = string
   default     = "postgresql"
-  
+
   validation {
     condition     = contains(["mysql", "postgresql"], var.database_type)
     error_message = "Database type must be either 'mysql' or 'postgresql'."

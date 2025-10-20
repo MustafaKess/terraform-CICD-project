@@ -38,7 +38,7 @@ variable "protocol" {
   description = "Load balancer protocol"
   type        = string
   default     = "HTTP"
-  
+
   validation {
     condition     = contains(["HTTP", "HTTPS", "TCP", "TERMINATED_HTTPS"], var.protocol)
     error_message = "Protocol must be one of: HTTP, HTTPS, TCP, TERMINATED_HTTPS."
@@ -55,7 +55,7 @@ variable "lb_method" {
   description = "Load balancing method"
   type        = string
   default     = "ROUND_ROBIN"
-  
+
   validation {
     condition     = contains(["ROUND_ROBIN", "LEAST_CONNECTIONS", "SOURCE_IP"], var.lb_method)
     error_message = "LB method must be one of: ROUND_ROBIN, LEAST_CONNECTIONS, SOURCE_IP."
@@ -76,7 +76,7 @@ variable "persistence_type" {
   description = "Session persistence type"
   type        = string
   default     = ""
-  
+
   validation {
     condition     = var.persistence_type == "" || contains(["SOURCE_IP", "HTTP_COOKIE", "APP_COOKIE"], var.persistence_type)
     error_message = "Persistence type must be empty or one of: SOURCE_IP, HTTP_COOKIE, APP_COOKIE."
@@ -129,7 +129,7 @@ variable "monitor_type" {
   description = "Health monitor type"
   type        = string
   default     = "HTTP"
-  
+
   validation {
     condition     = contains(["HTTP", "HTTPS", "TCP", "PING"], var.monitor_type)
     error_message = "Monitor type must be one of: HTTP, HTTPS, TCP, PING."

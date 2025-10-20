@@ -159,15 +159,15 @@ output "database_connection_strings" {
 output "deployment_summary" {
   description = "Summary of deployed infrastructure"
   value = {
-    project_name          = var.project_name
-    environment           = var.environment
-    frontend_vm_count     = var.frontend_vm_count
-    database_vm_count     = var.database_vm_count
-    load_balancer_enabled = var.enable_load_balancer
-    web_server_type       = var.web_server_type
-    database_type         = var.database_type
-    storage_enabled       = var.enable_persistent_storage
-    containers_enabled    = var.enable_object_storage
+    project_name           = var.project_name
+    environment            = var.environment
+    frontend_vm_count      = var.frontend_vm_count
+    database_vm_count      = var.database_vm_count
+    load_balancer_enabled  = var.enable_load_balancer
+    web_server_type        = var.web_server_type
+    database_type          = var.database_type
+    storage_enabled        = var.enable_persistent_storage
+    containers_enabled     = var.enable_object_storage
     load_balancer_endpoint = var.enable_load_balancer ? module.load_balancer[0].lb_endpoint : "N/A"
   }
 }

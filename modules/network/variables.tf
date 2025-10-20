@@ -11,7 +11,7 @@ variable "web_tier_subnet_name" {
 }
 
 variable "app_tier_subnet_name" {
-  description = "Name of the app tier subnet"  
+  description = "Name of the app tier subnet"
   type        = string
 }
 

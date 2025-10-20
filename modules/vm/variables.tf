@@ -55,7 +55,7 @@ variable "vm_type" {
   description = "Type of VM (frontend, database, app)"
   type        = string
   default     = "app"
-  
+
   validation {
     condition     = contains(["frontend", "database", "app"], var.vm_type)
     error_message = "VM type must be one of: frontend, database, app."

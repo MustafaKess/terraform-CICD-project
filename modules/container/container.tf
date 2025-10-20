@@ -2,9 +2,9 @@
 
 resource "openstack_objectstorage_container_v1" "containers" {
   for_each = toset(var.container_names)
-  
-  name                = "${var.project_name}-${each.key}"
-  content_type        = "application/json"
+
+  name               = "${var.project_name}-${each.key}"
+  content_type       = "application/json"
   metadata           = var.container_metadata
   container_read     = var.container_read_acl
   container_write    = var.container_write_acl

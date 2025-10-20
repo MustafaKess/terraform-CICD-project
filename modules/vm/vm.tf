@@ -29,11 +29,11 @@ data "template_cloudinit_config" "userdata" {
 # Persistent storage volume
 resource "openstack_blockstorage_volume_v3" "storage" {
   count = var.enable_persistent_storage ? 1 : 0
-  
+
   name        = "${var.name}-storage"
   size        = var.persistent_storage_size
   description = "Persistent storage for ${var.name}"
-  
+
   metadata = {
     vm_name    = var.name
     vm_type    = var.vm_type
@@ -46,20 +46,20 @@ resource "openstack_compute_instance_v2" "vm" {
   image_id  = data.openstack_images_image_v2.image.id
   flavor_id = data.openstack_compute_flavor_v2.flavor.id
   key_pair  = var.ssh_key_name
-  
+
   security_groups = concat(
     [openstack_networking_secgroup_v2.secgroup.name, "default"],
     var.additional_security_groups
   )
-  
+
   user_data = var.cloud_init_template == "" ? "" : data.template_cloudinit_config.userdata[0].rendered
 
-network {
-  uuid        = var.network_id
-  fixed_ip_v4 = var.subnet_id != "" ? null : null
-}
+  network {
+    uuid        = var.network_id
+    fixed_ip_v4 = var.subnet_id != "" ? null : null
+  }
 
-  
+
   metadata = {
     vm_type    = var.vm_type
     created_by = "terraform"
@@ -69,7 +69,7 @@ network {
 # Attach persistent storage
 resource "openstack_compute_volume_attach_v2" "storage_attachment" {
   count = var.enable_persistent_storage ? 1 : 0
-  
+
   instance_id = openstack_compute_instance_v2.vm.id
   volume_id   = openstack_blockstorage_volume_v3.storage[0].id
   device      = var.storage_device

@@ -26,7 +26,7 @@ resource "openstack_networking_secgroup_rule_v2" "ssh" {
 # HTTP access rule - for frontend VMs
 resource "openstack_networking_secgroup_rule_v2" "http" {
   count = var.vm_type == "frontend" ? 1 : 0
-  
+
   direction         = "ingress"
   ethertype         = "IPv4"
   port_range_min    = 80
@@ -39,7 +39,7 @@ resource "openstack_networking_secgroup_rule_v2" "http" {
 # HTTPS access rule - for frontend VMs
 resource "openstack_networking_secgroup_rule_v2" "https" {
   count = var.vm_type == "frontend" ? 1 : 0
-  
+
   direction         = "ingress"
   ethertype         = "IPv4"
   port_range_min    = 443
@@ -52,51 +52,51 @@ resource "openstack_networking_secgroup_rule_v2" "https" {
 # MySQL access rule - for database VMs
 resource "openstack_networking_secgroup_rule_v2" "mysql" {
   count = var.vm_type == "database" ? 1 : 0
-  
+
   direction         = "ingress"
   ethertype         = "IPv4"
   port_range_min    = 3306
   port_range_max    = 3306
   protocol          = "tcp"
-  remote_ip_prefix  = "10.0.0.0/16"  # Only allow internal access
+  remote_ip_prefix  = "10.0.0.0/16" # Only allow internal access
   security_group_id = openstack_networking_secgroup_v2.secgroup.id
 }
 
 # PostgreSQL access rule - for database VMs  
 resource "openstack_networking_secgroup_rule_v2" "postgresql" {
   count = var.vm_type == "database" ? 1 : 0
-  
+
   direction         = "ingress"
   ethertype         = "IPv4"
   port_range_min    = 5432
   port_range_max    = 5432
   protocol          = "tcp"
-  remote_ip_prefix  = "10.0.0.0/16"  # Only allow internal access
+  remote_ip_prefix  = "10.0.0.0/16" # Only allow internal access
   security_group_id = openstack_networking_secgroup_v2.secgroup.id
 }
 
 # Custom application ports (8080, 8443) - for app tier VMs
 resource "openstack_networking_secgroup_rule_v2" "app_http" {
   count = var.vm_type == "app" ? 1 : 0
-  
+
   direction         = "ingress"
   ethertype         = "IPv4"
   port_range_min    = 8080
   port_range_max    = 8080
   protocol          = "tcp"
-  remote_ip_prefix  = "10.0.0.0/16"  # Only allow internal access
+  remote_ip_prefix  = "10.0.0.0/16" # Only allow internal access
   security_group_id = openstack_networking_secgroup_v2.secgroup.id
 }
 
 resource "openstack_networking_secgroup_rule_v2" "app_https" {
   count = var.vm_type == "app" ? 1 : 0
-  
+
   direction         = "ingress"
   ethertype         = "IPv4"
   port_range_min    = 8443
   port_range_max    = 8443
   protocol          = "tcp"
-  remote_ip_prefix  = "10.0.0.0/16"  # Only allow internal access
+  remote_ip_prefix  = "10.0.0.0/16" # Only allow internal access
   security_group_id = openstack_networking_secgroup_v2.secgroup.id
 }
 

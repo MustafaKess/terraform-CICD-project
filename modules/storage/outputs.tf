@@ -17,5 +17,5 @@ output "attachment_info" {
     instance_id = attachment.instance_id
     volume_id   = attachment.volume_id
     device      = attachment.device
-  }}
+  } }
 }
