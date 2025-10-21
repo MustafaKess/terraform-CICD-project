@@ -79,7 +79,6 @@ jobs:
   terraform_plan:
     runs-on: [self-hosted, terraform-runner]
     needs: terraform_validate
-    if: ${{ github.event.inputs.action == 'apply' }}
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -112,10 +111,9 @@ jobs:
           path: ./terraform.tfplan
           if-no-files-found: ignore
 
-  # Stage 4: Terraform Apply (Deploy)
+  # Stage 4: Terraform Apply (Deploy , must be manually called)
   terraform_apply:
     runs-on: [self-hosted, terraform-runner]
-    needs: terraform_plan
     if: ${{ github.event.inputs.action == 'apply' }}
     environment:
       name: prod
