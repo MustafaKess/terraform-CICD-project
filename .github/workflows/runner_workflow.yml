@@ -18,7 +18,7 @@ on:
       environment:
         description: "Select environment (test, prod)"
         required: true
-        default: "test"
+        default: "prod"
 
 jobs:
 
@@ -108,7 +108,7 @@ jobs:
       - name: Upload Terraform Plan (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-plan-${{ github.event.inputs.environment }}
+          name: terraform-plan-prod
           path: ./terraform.tfplan
           if-no-files-found: ignore
 
@@ -118,7 +118,7 @@ jobs:
     needs: terraform_plan
     if: ${{ github.event.inputs.action == 'apply' }}
     environment:
-      name: ${{ github.event.inputs.environment }}
+      name: prod
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -149,7 +149,7 @@ jobs:
     runs-on: [self-hosted, terraform-runner]
     if: ${{ github.event.inputs.action == 'destroy' }}
     environment:
-      name: ${{ github.event.inputs.environment }}
+      name: prod
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -172,8 +172,14 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      - name: Select Workspace
+        run: terraform workspace select prod || terraform workspace new prod
+
+      - name: Terraform Refresh
+        run: terraform refresh -var-file="tfvars/prod.tfvars"
+
       - name: Confirm Destroy Input
-        run: echo "Running Terraform destroy for ${{ github.event.inputs.environment }} environment"
+        run: echo "Running Terraform destroy for prod environment"
 
       - name: Terraform Destroy
         run: terraform destroy -auto-approve -var-file="tfvars/prod.tfvars"
