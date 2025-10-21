@@ -10,8 +10,8 @@ app_tier_cidr = "10.10.2.0/24"
 db_tier_cidr  = "10.10.3.0/24"
 
 # VM Configuration
-frontend_vm_count = 4
-database_vm_count = 2
+frontend_vm_count = 1
+database_vm_count = 1
 vm_flavor = "gx3.2c2r"
 
 # OS Image
