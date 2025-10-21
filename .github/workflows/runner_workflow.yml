@@ -103,7 +103,7 @@ jobs:
         run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
+        run: terraform plan -var-file="tfvars/prod.tfvars"
 
       - name: Upload Terraform Plan (artifact)
         uses: actions/upload-artifact@v4
@@ -142,13 +142,12 @@ jobs:
         run: terraform init
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
+        run: terraform apply -auto-approve -var-file="tfvars/prod.tfvars"
 
   # Stage 5: Optional Destroy (manual only)
   terraform_destroy:
     runs-on: [self-hosted, terraform-runner]
     if: ${{ github.event.inputs.action == 'destroy' }}
-    needs: [terraform_validate]
     environment:
       name: ${{ github.event.inputs.environment }}
     env:
@@ -177,4 +176,4 @@ jobs:
         run: echo "Running Terraform destroy for ${{ github.event.inputs.environment }} environment"
 
       - name: Terraform Destroy
-        run: terraform destroy -auto-approve -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
+        run: terraform destroy -auto-approve -var-file="tfvars/prod.tfvars"
