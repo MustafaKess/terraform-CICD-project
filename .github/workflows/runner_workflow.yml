@@ -1,0 +1,180 @@
+name: Terraform runner_flow
+
+# Workflow phases: Develop -> Validate -> Plan -> Deploy (optional Destroy)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Choose Terraform action: plan/apply or destroy"
+        required: true
+        default: "apply"
+        type: choice
+        options:
+          - apply
+          - destroy
+      environment:
+        description: "Select environment (test, prod)"
+        required: true
+        default: "test"
+
+jobs:
+
+  # Stage 1: Setup and validate secrets
+  setup:
+    runs-on: [self-hosted, terraform-runner]
+    env:
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          for var in OS_USERNAME OS_PASSWORD OS_TENANT_ID OS_AUTH_URL; do
+            if [ -z "${!var}" ]; then
+              echo "Missing $var secret"
+              exit 1
+            fi
+          done
+          echo "All required OpenStack secrets are set."
+
+  # Stage 2: Terraform Init & Validate
+  terraform_validate:
+    runs-on: [self-hosted, terraform-runner]
+    needs: setup
+    env:
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+      OS_USERDOMAIN_NAME: NTNU
+      OS_DOMAIN_NAME: NTNU
+      OS_INTERFACE: public
+      OS_ENDPOINT_TYPE: publicURL
+      OS_IDENTITY_API_VERSION: 3
+      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
+      TF_VAR_external_network: "ntnu-internal"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+  # Stage 3: Terraform Plan
+  terraform_plan:
+    runs-on: [self-hosted, terraform-runner]
+    needs: terraform_validate
+    if: ${{ github.event.inputs.action == 'apply' }}
+    env:
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+      OS_USERDOMAIN_NAME: NTNU
+      OS_DOMAIN_NAME: NTNU
+      OS_INTERFACE: public
+      OS_ENDPOINT_TYPE: publicURL
+      OS_IDENTITY_API_VERSION: 3
+      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
+      TF_VAR_external_network: "ntnu-internal"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
+
+      - name: Upload Terraform Plan (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ github.event.inputs.environment }}
+          path: ./terraform.tfplan
+          if-no-files-found: ignore
+
+  # Stage 4: Terraform Apply (Deploy)
+  terraform_apply:
+    runs-on: [self-hosted, terraform-runner]
+    needs: terraform_plan
+    if: ${{ github.event.inputs.action == 'apply' }}
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    env:
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+      OS_USERDOMAIN_NAME: NTNU
+      OS_DOMAIN_NAME: NTNU
+      OS_INTERFACE: public
+      OS_ENDPOINT_TYPE: publicURL
+      OS_IDENTITY_API_VERSION: 3
+      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
+      TF_VAR_external_network: "ntnu-internal"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
+
+  # Stage 5: Optional Destroy (manual only)
+  terraform_destroy:
+    runs-on: [self-hosted, terraform-runner]
+    if: ${{ github.event.inputs.action == 'destroy' }}
+    needs: [terraform_validate]
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    env:
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+      OS_USERDOMAIN_NAME: NTNU
+      OS_DOMAIN_NAME: NTNU
+      OS_INTERFACE: public
+      OS_ENDPOINT_TYPE: publicURL
+      OS_IDENTITY_API_VERSION: 3
+      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
+      TF_VAR_external_network: "ntnu-internal"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Confirm Destroy Input
+        run: echo "Running Terraform destroy for ${{ github.event.inputs.environment }} environment"
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
