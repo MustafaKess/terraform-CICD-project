@@ -12,7 +12,7 @@ db_tier_cidr  = "10.10.3.0/24"
 # VM Configuration
 frontend_vm_count = 1
 database_vm_count = 1
-vm_flavor = "gx3.2c2r"
+vm_flavor         = "gx3.2c2r"
 
 # OS Image
 vm_image = "Debian 13 (Trixie) stable amd64"
