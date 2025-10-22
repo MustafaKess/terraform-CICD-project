@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Choose Terraform action: plan/apply or destroy"
+        description: "Choose Terraform action"
         required: true
         default: "apply"
         type: choice
@@ -24,63 +24,8 @@ on:
           - prod
 
 jobs:
-  # Stage 1: Setup and validate secrets
-  setup:
+  terraform:
     runs-on: [self-hosted, terraform-runner]
-    env:
-      OS_USERNAME: ${{ secrets.OS_USERNAME }}
-      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
-      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
-      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Validate required secrets
-        run: |
-          for var in OS_USERNAME OS_PASSWORD OS_TENANT_ID OS_AUTH_URL; do
-            if [ -z "${!var}" ]; then
-              echo "Missing $var secret"
-              exit 1
-            fi
-          done
-          echo "All required OpenStack secrets are set."
-
-  # Stage 2: Terraform Init & Validate
-  terraform_validate:
-    runs-on: [self-hosted, terraform-runner]
-    needs: setup
-    env:
-      OS_USERNAME: ${{ secrets.OS_USERNAME }}
-      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
-      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
-      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
-      OS_USERDOMAIN_NAME: NTNU
-      OS_DOMAIN_NAME: NTNU
-      OS_INTERFACE: public
-      OS_ENDPOINT_TYPE: publicURL
-      OS_IDENTITY_API_VERSION: 3
-      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
-      TF_VAR_external_network: "ntnu-internal"
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.9.8
-
-      - name: Terraform Init
-        run: terraform init
-
-      - name: Terraform Validate
-        run: terraform validate
-
-  # Stage 3: Terraform Plan
-  terraform_plan:
-    runs-on: [self-hosted, terraform-runner]
-    needs: terraform_validate
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -96,18 +41,34 @@ jobs:
       GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
       GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
       STATE_NAME: ${{ github.event.inputs.environment }}-state
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate required secrets
+        run: |
+          for var in OS_USERNAME OS_PASSWORD OS_TENANT_ID OS_AUTH_URL GITLAB_PROJECT_ID GITLAB_TOKEN; do
+            if [ -z "${!var}" ]; then
+              echo "Missing $var secret"
+              exit 1
+            fi
+          done
+          echo "All required secrets are set."
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
 
       - name: Terraform Init (GitLab backend)
         run: terraform init \
              -backend-config="gitlab_project_id=${GITLAB_PROJECT_ID}" \
              -backend-config="state_name=${STATE_NAME}" \
              -backend-config="gitlab_token=${GITLAB_TOKEN}"
+
+      - name: Terraform Validate
+        run: terraform validate
 
       - name: Terraform Plan
         run: terraform plan -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
@@ -119,86 +80,13 @@ jobs:
           path: ./terraform.tfplan
           if-no-files-found: ignore
 
-  # Stage 4: Terraform Apply
-  terraform_apply:
-    runs-on: [self-hosted, terraform-runner]
-    if: ${{ github.event.inputs.action == 'apply' }}
-    needs: terraform_plan
-    environment:
-      name: ${{ github.event.inputs.environment }}
-    env:
-      OS_USERNAME: ${{ secrets.OS_USERNAME }}
-      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
-      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
-      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
-      OS_USERDOMAIN_NAME: NTNU
-      OS_DOMAIN_NAME: NTNU
-      OS_INTERFACE: public
-      OS_ENDPOINT_TYPE: publicURL
-      OS_IDENTITY_API_VERSION: 3
-      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
-      TF_VAR_external_network: "ntnu-internal"
-      GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
-      GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-      STATE_NAME: ${{ github.event.inputs.environment }}-state
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform Init (GitLab backend)
-        run: terraform init \
-             -backend-config="gitlab_project_id=${GITLAB_PROJECT_ID}" \
-             -backend-config="state_name=${STATE_NAME}" \
-             -backend-config="gitlab_token=${GITLAB_TOKEN}"
-
       - name: Terraform Apply
+        if: ${{ github.event.inputs.action == 'apply' }}
         run: terraform apply -auto-approve -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
 
-  # Stage 5: Terraform Destroy
-  terraform_destroy:
-    runs-on: [self-hosted, terraform-runner]
-    if: ${{ github.event.inputs.action == 'destroy' }}
-    needs: terraform_plan
-    environment:
-      name: ${{ github.event.inputs.environment }}
-    env:
-      OS_USERNAME: ${{ secrets.OS_USERNAME }}
-      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
-      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
-      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
-      OS_USERDOMAIN_NAME: NTNU
-      OS_DOMAIN_NAME: NTNU
-      OS_INTERFACE: public
-      OS_ENDPOINT_TYPE: publicURL
-      OS_IDENTITY_API_VERSION: 3
-      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
-      TF_VAR_external_network: "ntnu-internal"
-      GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
-      GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-      STATE_NAME: ${{ github.event.inputs.environment }}-state
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.9.8
-
-      - name: Terraform Init (GitLab backend)
-        run: terraform init \
-             -backend-config="gitlab_project_id=${GITLAB_PROJECT_ID}" \
-             -backend-config="state_name=${STATE_NAME}" \
-             -backend-config="gitlab_token=${GITLAB_TOKEN}"
-
-      - name: Terraform Plan (preview destroy)
-        run: terraform plan -destroy -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
-
-      - name: Confirm Destroy Input
-        run: echo "Running Terraform destroy for ${{ github.event.inputs.environment }} environment"
-
       - name: Terraform Destroy
-        run: terraform destroy -auto-approve -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        run: |
+          terraform plan -destroy -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
+          echo "Running Terraform destroy for ${{ github.event.inputs.environment }} environment"
+          terraform destroy -auto-approve -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
