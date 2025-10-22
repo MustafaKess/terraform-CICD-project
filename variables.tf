@@ -4,6 +4,12 @@
 
 
 # Security Configuration
+variable "ssh_cidr" {
+  description = "CIDR range allowed for SSH access"
+  type        = string
+  default     = "10.10.0.119/32" # Default to runner IP for security
+}
+
 variable "allowed_ssh_cidrs" {
   description = "List of CIDR ranges allowed for SSH access"
   type        = list(string)

@@ -1,8 +1,10 @@
 terraform {
   required_version = ">= 1.0.0"
 
-  # Store state locally for this assignment
-  backend "local" {}
+  backend "swift" {
+    container         = "terraform-state"
+    archive_container = "terraform-state-archive"
+  }
   required_providers {
     openstack = {
       source  = "terraform-provider-openstack/openstack"

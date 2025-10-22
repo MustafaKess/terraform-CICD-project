@@ -62,7 +62,14 @@ jobs:
           terraform_version: 1.9.8
 
       - name: Terraform Init
-        run: terraform init
+        run: |
+          terraform init \
+            -backend-config="auth_url=$OS_AUTH_URL" \
+            -backend-config="user_name=$OS_USERNAME" \
+            -backend-config="password=$OS_PASSWORD" \
+            -backend-config="tenant_id=$OS_TENANT_ID" \
+            -backend-config="user_domain_name=$OS_USERDOMAIN_NAME" \
+            -backend-config="region_name=trondheim"
 
       - name: Terraform Validate
         run: terraform validate
