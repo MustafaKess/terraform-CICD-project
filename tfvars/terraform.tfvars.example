@@ -40,6 +40,9 @@ database_user     = "appuser"
 
 
 # Security Configuration
-allowed_ssh_cidrs  = ["0.0.0.0/0"]      # Allow SSH from anywhere (for testing only)
-allowed_http_cidrs = ["0.0.0.0/0"]
-allowed_db_cidrs   = ["10.0.0.0/16"]
+allowed_ssh_cidrs  = ["10.10.0.119/32"] # Only allow SSH from runner IP
+allowed_http_cidrs = ["10.0.0.0/16"] # Restrict HTTP access to internal network
+allowed_db_cidrs   = ["10.0.0.0/16"] # Only allow database access from internal network
+
+# Security Groups
+ssh_cidr = "10.10.0.119/32" # self-hosted runner IP

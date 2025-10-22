@@ -28,6 +28,9 @@ database_type   = "postgresql"
 database_name   = "appdb"
 database_user   = "appuser"
 
-allowed_ssh_cidrs  = ["0.0.0.0/0"]
-allowed_http_cidrs = ["0.0.0.0/0"]
-allowed_db_cidrs   = ["10.0.0.0/16"]
+allowed_ssh_cidrs  = ["10.10.0.119/32"] # Only allow SSH from runner IP
+allowed_http_cidrs = ["0.0.0.0/0"]      # Development environment, allow access for testing
+allowed_db_cidrs   = ["10.0.0.0/16"]    # Only internal access to database
+
+# Security Groups
+ssh_cidr = "10.10.0.119/32" # self-hosted runner IP

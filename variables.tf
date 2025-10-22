@@ -3,6 +3,25 @@
 // and application configuration variables
 
 
+# Security Configuration
+variable "allowed_ssh_cidrs" {
+  description = "List of CIDR ranges allowed for SSH access"
+  type        = list(string)
+  default     = ["10.10.0.119/32"] # Default to runner IP for security
+}
+
+variable "allowed_http_cidrs" {
+  description = "List of CIDR ranges allowed for HTTP/HTTPS access"
+  type        = list(string)
+  default     = ["0.0.0.0/0"] # Default to all, should be restricted in production
+}
+
+variable "allowed_db_cidrs" {
+  description = "List of CIDR ranges allowed for database access"
+  type        = list(string)
+  default     = ["10.0.0.0/16"] # Default to internal network only
+}
+
 # Project Configuration
 variable "project_name" {
   description = "Name of the project (used as prefix for resources)"
@@ -175,25 +194,6 @@ variable "storage_container_names" {
   description = "List of object storage container names"
   type        = list(string)
   default     = ["app-data", "backups", "logs"]
-}
-
-# Security Configuration
-variable "allowed_ssh_cidrs" {
-  description = "CIDR blocks allowed for SSH access"
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
-}
-
-variable "allowed_http_cidrs" {
-  description = "CIDR blocks allowed for HTTP access"
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
-}
-
-variable "allowed_db_cidrs" {
-  description = "CIDR blocks allowed for database access (internal only)"
-  type        = list(string)
-  default     = ["10.0.0.0/16"]
 }
 
 # Application Configuration

@@ -2,6 +2,13 @@ name: Terraform runner_flow
 
 # Workflow phases: Develop -> Validate -> Plan -> Deploy (optional Destroy)
 
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+  deployments: write
+  checks: write
+
 on:
   push:
     branches: [ "main" ]

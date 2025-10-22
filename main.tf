@@ -62,7 +62,8 @@ module "frontend_vms" {
   cloud_init_template       = local.frontend_cloud_init
   enable_persistent_storage = var.enable_persistent_storage
   persistent_storage_size   = var.persistent_storage_size
-  storage_volume_type       = var.storage_volume_type
+  ssh_cidr                  = var.allowed_ssh_cidrs[0]
+  web_access_cidr           = var.allowed_http_cidrs[0]
 }
 
 # Database VMs (Database Tier)
@@ -81,7 +82,7 @@ module "database_vms" {
   cloud_init_template       = local.database_cloud_init
   enable_persistent_storage = true                            # Databases always need persistent storage
   persistent_storage_size   = var.persistent_storage_size * 2 # Larger storage for databases
-  storage_volume_type       = var.storage_volume_type
+  ssh_cidr                  = var.allowed_ssh_cidrs[0]
 }
 
 # Load Balancer (Web Tier)

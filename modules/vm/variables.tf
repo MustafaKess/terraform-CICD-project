@@ -1,9 +1,25 @@
 // Variables for VM module configuration
 
+variable "web_access_cidr" {
+  description = "CIDR range allowed for HTTP/HTTPS access"
+  type        = string
+  default     = "0.0.0.0/0" # Default to allow all, should be restricted in production
+
+  validation {
+    condition     = can(cidrhost(var.web_access_cidr, 0))
+    error_message = "The web_access_cidr value must be a valid CIDR range."
+  }
+}
+
 variable "ssh_cidr" {
   description = "CIDR range allowed for SSH access"
   type        = string
-  default     = "0.0.0.0/0" # open for CI/CD testing
+  default     = "10.10.0.119/32" # Default to runner IP for security
+
+  validation {
+    condition     = can(cidrhost(var.ssh_cidr, 0))
+    error_message = "The ssh_cidr value must be a valid CIDR range."
+  }
 }
 
 variable "name" {
@@ -78,12 +94,6 @@ variable "persistent_storage_size" {
   description = "Size of persistent storage in GB"
   type        = number
   default     = 20
-}
-
-variable "storage_volume_type" {
-  description = "Type of storage volume (empty string uses default)"
-  type        = string
-  default     = ""
 }
 
 variable "storage_device" {
