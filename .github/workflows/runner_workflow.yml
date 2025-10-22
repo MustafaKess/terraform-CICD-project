@@ -1,22 +1,31 @@
 name: Terraform runner_flow
 
+# Workflow phases: Develop -> Validate -> Plan -> Deploy or Destroy (optional, manually activated)
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+  deployments: write
+  checks: write
+
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
     inputs:
       action:
-        description: "Choose Terraform action"
+        description: "Terraform action (plan, apply, or destroy)"
         required: true
-        default: "apply"
+        default: "plan"
         type: choice
         options:
+          - plan
           - apply
           - destroy
       environment:
-        description: "Select environment"
+        description: "Target environment"
         required: true
-        default: "prod"
+        default: "test"
         type: choice
         options:
           - test
@@ -25,7 +34,10 @@ on:
 
 jobs:
   terraform:
+    name: Terraform ${{ github.event.inputs.action }} (${{ github.event.inputs.environment }})
     runs-on: [self-hosted, terraform-runner]
+    environment: ${{ github.event.inputs.environment }} # Manual approval applies for prod
+
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -38,55 +50,31 @@ jobs:
       OS_IDENTITY_API_VERSION: 3
       TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
       TF_VAR_external_network: "ntnu-internal"
-      GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
-      GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-      STATE_NAME: ${{ github.event.inputs.environment }}-state
+      ENV_FILE: ${{ github.event.inputs.environment }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Validate required secrets
-        run: |
-          for var in OS_USERNAME OS_PASSWORD OS_TENANT_ID OS_AUTH_URL GITLAB_PROJECT_ID GITLAB_TOKEN; do
-            if [ -z "${!var}" ]; then
-              echo "Missing $var secret"
-              exit 1
-            fi
-          done
-          echo "All required secrets are set."
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.8
 
-      - name: Terraform Init (GitLab backend)
-        run: terraform init \
-             -backend-config="gitlab_project_id=${GITLAB_PROJECT_ID}" \
-             -backend-config="state_name=${STATE_NAME}" \
-             -backend-config="gitlab_token=${GITLAB_TOKEN}"
+      - name: Terraform Init
+        run: terraform init
 
       - name: Terraform Validate
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
-
-      - name: Upload Terraform Plan (artifact)
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan-${{ github.event.inputs.environment }}
-          path: ./terraform.tfplan
-          if-no-files-found: ignore
+        if: ${{ github.event.inputs.action == 'plan' }}
+        run: terraform plan -var-file="tfvars/${{ env.ENV_FILE }}.tfvars" -out=tfplan
 
       - name: Terraform Apply
         if: ${{ github.event.inputs.action == 'apply' }}
-        run: terraform apply -auto-approve -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
+        run: terraform apply -auto-approve -var-file="tfvars/${{ env.ENV_FILE }}.tfvars"
 
       - name: Terraform Destroy
         if: ${{ github.event.inputs.action == 'destroy' }}
-        run: |
-          terraform plan -destroy -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
-          echo "Running Terraform destroy for ${{ github.event.inputs.environment }} environment"
-          terraform destroy -auto-approve -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
+        run: terraform destroy -auto-approve -var-file="tfvars/${{ env.ENV_FILE }}.tfvars"
