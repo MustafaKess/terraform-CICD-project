@@ -1,31 +1,22 @@
 name: Terraform runner_flow
 
-# Workflow phases: Develop -> Validate -> Plan -> Deploy or Destroy (optional, manually activated)
-permissions:
-  contents: read
-  id-token: write
-  pull-requests: write
-  deployments: write
-  checks: write
-
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
     inputs:
       action:
-        description: "Terraform action (plan, apply, or destroy)"
+        description: "Choose Terraform action: plan/apply or destroy"
         required: true
-        default: "plan"
+        default: "apply"
         type: choice
         options:
-          - plan
           - apply
           - destroy
       environment:
-        description: "Target environment"
+        description: "Select environment"
         required: true
-        default: "test"
+        default: "prod"
         type: choice
         options:
           - test
@@ -33,11 +24,32 @@ on:
           - prod
 
 jobs:
-  terraform:
-    name: Terraform ${{ github.event.inputs.action }} (${{ github.event.inputs.environment }})
+  # Stage 1: Setup and validate secrets
+  setup:
     runs-on: [self-hosted, terraform-runner]
-    environment: ${{ github.event.inputs.environment }} # Manual approval applies for prod
+    env:
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      - name: Validate required secrets
+        run: |
+          for var in OS_USERNAME OS_PASSWORD OS_TENANT_ID OS_AUTH_URL; do
+            if [ -z "${!var}" ]; then
+              echo "Missing $var secret"
+              exit 1
+            fi
+          done
+          echo "All required OpenStack secrets are set."
+
+  # Stage 2: Terraform Init & Validate
+  terraform_validate:
+    runs-on: [self-hosted, terraform-runner]
+    needs: setup
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -50,8 +62,6 @@ jobs:
       OS_IDENTITY_API_VERSION: 3
       TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
       TF_VAR_external_network: "ntnu-internal"
-      ENV_FILE: ${{ github.event.inputs.environment }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -62,26 +72,133 @@ jobs:
           terraform_version: 1.9.8
 
       - name: Terraform Init
-        run: |
-          terraform init \
-            -backend-config="auth_url=$OS_AUTH_URL" \
-            -backend-config="user_name=$OS_USERNAME" \
-            -backend-config="password=$OS_PASSWORD" \
-            -backend-config="tenant_id=$OS_TENANT_ID" \
-            -backend-config="user_domain_name=$OS_USERDOMAIN_NAME" \
-            -backend-config="region_name=trondheim"
+        run: terraform init
 
       - name: Terraform Validate
         run: terraform validate
 
+  # Stage 3: Terraform Plan
+  terraform_plan:
+    runs-on: [self-hosted, terraform-runner]
+    needs: terraform_validate
+    env:
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+      OS_USERDOMAIN_NAME: NTNU
+      OS_DOMAIN_NAME: NTNU
+      OS_INTERFACE: public
+      OS_ENDPOINT_TYPE: publicURL
+      OS_IDENTITY_API_VERSION: 3
+      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
+      TF_VAR_external_network: "ntnu-internal"
+      GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
+      GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+      STATE_NAME: ${{ github.event.inputs.environment }}-state
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init (GitLab backend)
+        run: terraform init \
+             -backend-config="gitlab_project_id=${GITLAB_PROJECT_ID}" \
+             -backend-config="state_name=${STATE_NAME}" \
+             -backend-config="gitlab_token=${GITLAB_TOKEN}"
+
       - name: Terraform Plan
-        if: ${{ github.event.inputs.action == 'plan' }}
-        run: terraform plan -var-file="tfvars/${{ env.ENV_FILE }}.tfvars" -out=tfplan
+        run: terraform plan -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
+
+      - name: Upload Terraform Plan (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ github.event.inputs.environment }}
+          path: ./terraform.tfplan
+          if-no-files-found: ignore
+
+  # Stage 4: Terraform Apply
+  terraform_apply:
+    runs-on: [self-hosted, terraform-runner]
+    if: ${{ github.event.inputs.action == 'apply' }}
+    needs: terraform_plan
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    env:
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+      OS_USERDOMAIN_NAME: NTNU
+      OS_DOMAIN_NAME: NTNU
+      OS_INTERFACE: public
+      OS_ENDPOINT_TYPE: publicURL
+      OS_IDENTITY_API_VERSION: 3
+      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
+      TF_VAR_external_network: "ntnu-internal"
+      GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
+      GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+      STATE_NAME: ${{ github.event.inputs.environment }}-state
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init (GitLab backend)
+        run: terraform init \
+             -backend-config="gitlab_project_id=${GITLAB_PROJECT_ID}" \
+             -backend-config="state_name=${STATE_NAME}" \
+             -backend-config="gitlab_token=${GITLAB_TOKEN}"
 
       - name: Terraform Apply
-        if: ${{ github.event.inputs.action == 'apply' }}
-        run: terraform apply -auto-approve -var-file="tfvars/${{ env.ENV_FILE }}.tfvars"
+        run: terraform apply -auto-approve -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
+
+  # Stage 5: Terraform Destroy
+  terraform_destroy:
+    runs-on: [self-hosted, terraform-runner]
+    if: ${{ github.event.inputs.action == 'destroy' }}
+    needs: terraform_plan
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    env:
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+      OS_USERDOMAIN_NAME: NTNU
+      OS_DOMAIN_NAME: NTNU
+      OS_INTERFACE: public
+      OS_ENDPOINT_TYPE: publicURL
+      OS_IDENTITY_API_VERSION: 3
+      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
+      TF_VAR_external_network: "ntnu-internal"
+      GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
+      GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+      STATE_NAME: ${{ github.event.inputs.environment }}-state
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Terraform Init (GitLab backend)
+        run: terraform init \
+             -backend-config="gitlab_project_id=${GITLAB_PROJECT_ID}" \
+             -backend-config="state_name=${STATE_NAME}" \
+             -backend-config="gitlab_token=${GITLAB_TOKEN}"
+
+      - name: Terraform Plan (preview destroy)
+        run: terraform plan -destroy -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
+
+      - name: Confirm Destroy Input
+        run: echo "Running Terraform destroy for ${{ github.event.inputs.environment }} environment"
 
       - name: Terraform Destroy
-        if: ${{ github.event.inputs.action == 'destroy' }}
-        run: terraform destroy -auto-approve -var-file="tfvars/${{ env.ENV_FILE }}.tfvars"
+        run: terraform destroy -auto-approve -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"

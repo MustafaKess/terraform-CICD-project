@@ -242,3 +242,8 @@ variable "db_password" {
   type        = string
   sensitive   = true
 }
+
+
+variable "gitlab_project_id" {}
+variable "state_name" {}
+variable "gitlab_token" {}
