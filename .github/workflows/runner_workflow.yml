@@ -1,9 +1,9 @@
-name: Terraform Pipeline
+name: Terraform runner_flow
+
+# Workflow phases: Develop -> Validate -> Plan -> Deploy (optional Destroy)
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
     branches: [ "main" ]
   workflow_dispatch:
     inputs:
@@ -16,16 +16,12 @@ on:
           - apply
           - destroy
       environment:
-        description: "Select environment (test, staging, prod)"
+        description: "Select environment (test, prod)"
         required: true
-        default: "test"
-        type: choice
-        options:
-          - test
-          - staging
-          - prod
+        default: "prod"
 
 jobs:
+
   # Stage 1: Setup and validate secrets
   setup:
     runs-on: [self-hosted, terraform-runner]
@@ -47,11 +43,10 @@ jobs:
             fi
           done
           echo "All required OpenStack secrets are set."
-
-  # Stage 2: Terraform Init & Validate (TEST)
-  test_validate:
-    needs: setup
+  # Stage 2: Terraform Init & Validate
+  terraform_validate:
     runs-on: [self-hosted, terraform-runner]
+    needs: setup
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -65,24 +60,24 @@ jobs:
       TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
       TF_VAR_external_network: "ntnu-internal"
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
       - name: Terraform Init
         run: terraform init
-        
+
       - name: Terraform Validate
         run: terraform validate
-        
-      - name: Terraform Plan TEST
-        run: terraform plan -var-file="tfvars/test.tfvars" -out=test.tfplan
 
-  # Stage 4: Deploy to TEST (Automatic)
-  test_deploy:
-    needs: test_validate
+  # Stage 3: Terraform Plan
+  terraform_plan:
     runs-on: [self-hosted, terraform-runner]
-    environment:
-      name: test
+    needs: terraform_validate
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -96,50 +91,31 @@ jobs:
       TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
       TF_VAR_external_network: "ntnu-internal"
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
       - name: Terraform Init
         run: terraform init
-        
-      - name: Deploy to TEST
-        run: terraform apply -auto-approve -var-file="tfvars/test.tfvars"
 
-  # Stage 5: Deploy to STAGING (Automatic after TEST success)
-  staging_deploy:
-    needs: test_deploy
-    runs-on: [self-hosted, terraform-runner]
-    environment:
-      name: staging
-    env:
-      OS_USERNAME: ${{ secrets.OS_USERNAME }}
-      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
-      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
-      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
-      OS_USERDOMAIN_NAME: NTNU
-      OS_DOMAIN_NAME: NTNU
-      OS_INTERFACE: public
-      OS_ENDPOINT_TYPE: publicURL
-      OS_IDENTITY_API_VERSION: 3
-      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
-      TF_VAR_external_network: "ntnu-internal"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      
-      - name: Terraform Init
-        run: terraform init
-        
-      - name: Deploy to STAGING
-        run: terraform apply -auto-approve -var-file="tfvars/staging.tfvars"
+      - name: Terraform Plan
+        run: terraform plan -var-file="tfvars/prod.tfvars"
 
-  # Stage 6: Deploy to PROD (Manual Approval Required)
-  prod_deploy:
-    needs: staging_deploy
+      - name: Upload Terraform Plan (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-prod
+          path: ./terraform.tfplan
+          if-no-files-found: ignore
+
+  # Stage 4: Terraform Apply (Deploy , must be manually called)
+  terraform_apply:
     runs-on: [self-hosted, terraform-runner]
+    if: ${{ github.event.inputs.action == 'apply' }}
     environment:
       name: prod
-      url: https://github.com/${{ github.repository }}/deployments
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -153,21 +129,24 @@ jobs:
       TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
       TF_VAR_external_network: "ntnu-internal"
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
       - name: Terraform Init
         run: terraform init
-        
-      - name: Deploy to PROD
+
+      - name: Terraform Apply
         run: terraform apply -auto-approve -var-file="tfvars/prod.tfvars"
 
-  # Optional: Destroy Infrastructure (Manual Trigger)
-  destroy_environment:
-    if: github.event.inputs.action == 'destroy'
+  # Stage 5: Optional Destroy (manual only)
+  terraform_destroy:
     runs-on: [self-hosted, terraform-runner]
+    if: ${{ github.event.inputs.action == 'destroy' }}
     environment:
-      name: ${{ github.event.inputs.environment }}
+      name: prod
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -181,14 +160,23 @@ jobs:
       TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
       TF_VAR_external_network: "ntnu-internal"
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
       - name: Terraform Init
         run: terraform init
-        
-      - name: Confirm Destroy
-        run: echo "Destroying infrastructure in ${{ github.event.inputs.environment }} environment"
-        
-      - name: Destroy Infrastructure
-        run: terraform destroy -auto-approve -var-file="tfvars/${{ github.event.inputs.environment }}.tfvars"
+
+      - name: Select Workspace
+        run: terraform workspace select prod || terraform workspace new prod
+
+      - name: Terraform Refresh
+        run: terraform refresh -var-file="tfvars/prod.tfvars"
+
+      - name: Confirm Destroy Input
+        run: echo "Running Terraform destroy for prod environment"
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve -var-file="tfvars/prod.tfvars"

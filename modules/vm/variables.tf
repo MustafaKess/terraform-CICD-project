@@ -1,5 +1,11 @@
 // Variables for VM module configuration
 
+variable "ssh_cidr" {
+  description = "CIDR range allowed for SSH access"
+  type        = string
+  default     = "0.0.0.0/0" # open for CI/CD testing
+}
+
 variable "name" {
   description = "Name of the VM"
   type        = string

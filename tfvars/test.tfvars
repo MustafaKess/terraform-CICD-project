@@ -31,3 +31,6 @@ database_user   = "appuser"
 allowed_ssh_cidrs  = ["0.0.0.0/0"]
 allowed_http_cidrs = ["0.0.0.0/0"]
 allowed_db_cidrs   = ["10.1.0.0/16"]
+
+# Security Groups
+ssh_cidr = "10.10.0.119/32" # self-hosted runner IP
