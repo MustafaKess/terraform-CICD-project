@@ -1,6 +1,6 @@
 name: Terraform runner_flow
 
-# Workflow phases: Develop -> Validate -> Plan -> Apply (manual approval for apply)
+# Workflow phases: Setup -> Validate -> Plan -> Apply (manual approval for apply)
 permissions:
   contents: read
   id-token: write
@@ -23,34 +23,48 @@ on:
           - staging
           - prod
 
+env:
+  OS_USERDOMAIN_NAME: NTNU
+  OS_DOMAIN_NAME: NTNU
+  OS_INTERFACE: public
+  OS_ENDPOINT_TYPE: publicURL
+  OS_IDENTITY_API_VERSION: 3
+  TF_VAR_external_network: "ntnu-internal"
+  ENV_FILE: ${{ github.event.inputs.environment || 'test' }}
+
 jobs:
-  terraform:
-    name: Terraform Plan & Apply (${{ github.event.inputs.environment }})
+  setup:
+    name: Setup Terraform
     runs-on: [self-hosted, terraform-runner]
-    environment: ${{ github.event.inputs.environment }} # Manual approval applies for prod
-
-    env:
-      OS_USERNAME: ${{ secrets.OS_USERNAME }}
-      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
-      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
-      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
-      OS_USERDOMAIN_NAME: NTNU
-      OS_DOMAIN_NAME: NTNU
-      OS_INTERFACE: public
-      OS_ENDPOINT_TYPE: publicURL
-      OS_IDENTITY_API_VERSION: 3
-      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
-      TF_VAR_external_network: "ntnu-internal"
-      ENV_FILE: ${{ github.event.inputs.environment }}
-
+    outputs:
+      env_file: ${{ steps.set-env.outputs.env_file }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set environment file
+        id: set-env
+        run: echo "env_file=${ENV_FILE}" >> $GITHUB_OUTPUT
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.8
+
+  validate:
+    name: Validate Terraform
+    needs: setup
+    runs-on: [self-hosted, terraform-runner]
+    env:
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
+      ENV_FILE: ${{ needs.setup.outputs.env_file }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Terraform Init
         run: terraform init
@@ -58,9 +72,58 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+  plan:
+    name: Terraform Plan
+    needs: validate
+    runs-on: [self-hosted, terraform-runner]
+    env:
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
+      ENV_FILE: ${{ needs.setup.outputs.env_file }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Terraform Init
+        run: terraform init
+
       - name: Terraform Plan
         run: terraform plan -var-file="tfvars/${{ env.ENV_FILE }}.tfvars" -out=tfplan
 
+      - name: Save Terraform plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: tfplan
+
+  apply:
+    name: Terraform Apply (manual approval)
+    needs: plan
+    runs-on: [self-hosted, terraform-runner]
+    environment:
+      name: ${{ github.event.inputs.environment || 'test' }}
+    env:
+      OS_USERNAME: ${{ secrets.OS_USERNAME }}
+      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
+      ENV_FILE: ${{ needs.setup.outputs.env_file }}
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Terraform plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+
+      - name: Terraform Init
+        run: terraform init
+
       - name: Terraform Apply (manual approval)
-        if: github.event_name == 'workflow_dispatch'
         run: terraform apply -auto-approve tfplan
