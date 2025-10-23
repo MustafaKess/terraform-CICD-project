@@ -3,7 +3,7 @@
 
 provider "registry.terraform.io/hashicorp/template" {
   version     = "2.2.0"
-  constraints = "~> 2.2"
+  constraints = "~> 2.2.0, ~> 2.2"
   hashes = [
     "h1:94qn780bi1qjrbC3uQtjJh3Wkfwd5+tTtJHOb7KTg9w=",
     "zh:01702196f0a0492ec07917db7aaa595843d8f171dc195f4c988d2ffca2a06386",
@@ -21,7 +21,7 @@ provider "registry.terraform.io/hashicorp/template" {
 
 provider "registry.terraform.io/terraform-provider-openstack/openstack" {
   version     = "1.54.1"
-  constraints = "~> 1.54"
+  constraints = "~> 1.54.0, ~> 1.54.1"
   hashes = [
     "h1:JC0mScAPBs1MlHeEIPMZTQGhTA5aIG3iEuKMSPpR31E=",
     "zh:45ba84df17f94b15af7aab7007241e035dde8a5b46aeb761259d937058a80f71",
