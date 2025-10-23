@@ -1,6 +1,6 @@
 name: Terraform runner_flow
 
-# Workflow phases: Setup -> Validate -> Plan -> Apply (manual approval for apply)
+# Workflow phases: Setup -> Validate -> Plan -> Apply (manual approval)
 permissions:
   contents: read
   id-token: write
@@ -30,7 +30,6 @@ env:
   OS_ENDPOINT_TYPE: publicURL
   OS_IDENTITY_API_VERSION: 3
   TF_VAR_external_network: "ntnu-internal"
-  ENV_FILE: ${{ github.event.inputs.environment || 'test' }}
 
 jobs:
   setup:
@@ -44,7 +43,12 @@ jobs:
 
       - name: Set environment file
         id: set-env
-        run: echo "env_file=${ENV_FILE}" >> $GITHUB_OUTPUT
+        run: |
+          ENV_FILE="${{ github.event.inputs.environment }}"
+          if [ -z "$ENV_FILE" ]; then
+            ENV_FILE="test"
+          fi
+          echo "env_file=$ENV_FILE" >> $GITHUB_OUTPUT
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -104,7 +108,8 @@ jobs:
     needs: plan
     runs-on: [self-hosted, terraform-runner]
     environment:
-      name: ${{ github.event.inputs.environment || 'test' }}
+      name: ${{ needs.setup.outputs.env_file }}
+    if: github.event_name == 'workflow_dispatch'
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -112,7 +117,6 @@ jobs:
       OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
       TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
       ENV_FILE: ${{ needs.setup.outputs.env_file }}
-    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
