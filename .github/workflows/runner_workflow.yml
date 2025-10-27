@@ -1,6 +1,6 @@
 name: Terraform runner_flow
 
-# Workflow phases: Setup -> Validate -> Plan -> Apply (manual approval for apply)
+# Workflow phases: Setup -> Validate -> Plan -> Apply
 permissions:
   contents: read
   id-token: write
@@ -11,17 +11,6 @@ permissions:
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: "Target environment"
-        required: true
-        default: "test"
-        type: choice
-        options:
-          - test
-          - staging
-          - prod
 
 env:
   OS_USERDOMAIN_NAME: NTNU
@@ -30,6 +19,7 @@ env:
   OS_ENDPOINT_TYPE: publicURL
   OS_IDENTITY_API_VERSION: 3
   TF_VAR_external_network: "ntnu-internal"
+  ENV_FILE: test  # hardcoded to test.tfvars
 
 jobs:
   setup:
@@ -43,12 +33,7 @@ jobs:
 
       - name: Set environment file
         id: set-env
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "env_file=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-          else
-            echo "env_file=test" >> $GITHUB_OUTPUT
-          fi
+        run: echo "env_file=test" >> $GITHUB_OUTPUT
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -95,7 +80,7 @@ jobs:
         run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan -var-file="tfvars/${{ env.ENV_FILE }}.tfvars" -out=tfplan
+        run: terraform plan -var-file="tfvars/test.tfvars" -out=tfplan
 
       - name: Save Terraform plan artifact
         uses: actions/upload-artifact@v4
@@ -104,11 +89,9 @@ jobs:
           path: tfplan
 
   apply:
-    name: Terraform Apply (manual approval)
+    name: Terraform Apply
     needs: plan
     runs-on: [self-hosted, terraform-runner]
-    environment:
-      name: ${{ needs.setup.outputs.env_file }}
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -116,7 +99,6 @@ jobs:
       OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
       TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
       ENV_FILE: ${{ needs.setup.outputs.env_file }}
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -129,5 +111,5 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
-      - name: Terraform Apply (manual approval)
+      - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
