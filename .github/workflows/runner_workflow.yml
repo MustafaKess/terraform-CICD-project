@@ -1,6 +1,5 @@
 name: Terraform runner_flow
 
-# Workflow phases: Setup -> Validate -> Plan -> Apply
 permissions:
   contents: read
   id-token: write
@@ -10,7 +9,18 @@ permissions:
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "test"
+        type: choice
+        options:
+          - test
+          - staging
+          - prod
 
 env:
   OS_USERDOMAIN_NAME: NTNU
@@ -19,30 +29,10 @@ env:
   OS_ENDPOINT_TYPE: publicURL
   OS_IDENTITY_API_VERSION: 3
   TF_VAR_external_network: "ntnu-internal"
-  ENV_FILE: test  # hardcoded to test.tfvars
 
 jobs:
-  setup:
-    name: Setup Terraform
-    runs-on: [self-hosted, terraform-runner]
-    outputs:
-      env_file: ${{ steps.set-env.outputs.env_file }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set environment file
-        id: set-env
-        run: echo "env_file=test" >> $GITHUB_OUTPUT
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.9.8
-
-  validate:
-    name: Validate Terraform
-    needs: setup
+  plan:
+    name: Terraform Plan
     runs-on: [self-hosted, terraform-runner]
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
@@ -50,10 +40,17 @@ jobs:
       OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
       OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
       TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
-      ENV_FILE: ${{ needs.setup.outputs.env_file }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set environment file
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ENV_FILE=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+          else
+            echo "ENV_FILE=test" >> $GITHUB_ENV
+          fi
 
       - name: Terraform Init
         run: terraform init
@@ -61,55 +58,33 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-  plan:
-    name: Terraform Plan
-    needs: validate
-    runs-on: [self-hosted, terraform-runner]
-    env:
-      OS_USERNAME: ${{ secrets.OS_USERNAME }}
-      OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
-      OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
-      OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
-      TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
-      ENV_FILE: ${{ needs.setup.outputs.env_file }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Terraform Init
-        run: terraform init
-
       - name: Terraform Plan
-        run: terraform plan -var-file="tfvars/test.tfvars" -out=tfplan
-
-      - name: Save Terraform plan artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan
-          path: tfplan
+        run: terraform plan -var-file="tfvars/${ENV_FILE}.tfvars"
 
   apply:
     name: Terraform Apply
-    needs: plan
     runs-on: [self-hosted, terraform-runner]
+    needs: plan
     env:
       OS_USERNAME: ${{ secrets.OS_USERNAME }}
       OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
       OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
       OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
       TF_VAR_db_password: ${{ secrets.OS_PASSWORD }}
-      ENV_FILE: ${{ needs.setup.outputs.env_file }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download Terraform plan artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan
+      - name: Set environment file
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ENV_FILE=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+          else
+            echo "ENV_FILE=test" >> $GITHUB_ENV
+          fi
 
       - name: Terraform Init
         run: terraform init
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -var-file="tfvars/${ENV_FILE}.tfvars" -auto-approve
