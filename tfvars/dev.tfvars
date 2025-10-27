@@ -8,7 +8,7 @@ web_tier_cidr = "10.0.1.0/24"
 app_tier_cidr = "10.0.2.0/24"
 db_tier_cidr  = "10.0.3.0/24"
 
-frontend_vm_count = 2
+frontend_vm_count = 1
 database_vm_count = 1
 vm_flavor         = "gx1.1c1r"
 vm_image          = "Debian 13 (Trixie) stable amd64"
