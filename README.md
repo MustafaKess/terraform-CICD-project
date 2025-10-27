@@ -4,11 +4,11 @@
   ## Overview
 
   This repository contains the TerraTech infrastructure-as-code (IaC) setup for Assignment 2.  
-  The goal is to demonstrate a **multi-environment Terraform workflow using GitHub Actions**, applied to OpenStack.
+  The goal is to demonstrate a multi-environment Terraform workflow using GitHub Actions, applied to OpenStack.
 
   This includes:
 
-  - Development (`dev`), Testing (`test`), Staging (`staging`), and Production (`prod`) environments
+  - Testing (`test`), Staging (`staging`), and Production (`prod`) environments
   - Terraform modules for network, frontend, database, and optional load balancer
   - Environment-specific configurations via `tfvars` files
   - CI/CD workflow for **planning Terraform deployments**
@@ -121,7 +121,7 @@ To run a plan for the staging environment manually:
 
 
 ### Final notes and short-commings
-- Currently there are no remote state management, this causes terraform destroy to destroy 0 elements, so thats why its not implemented. I tried to do a solution using GitLab remote state enviroments but it ended up causing a lot of issues so i cut it off.
+- Currently there are no remote state management, this causes terraform destroy to destroy 0 elements, so thats why terraform destroy not implemented. I tried to do a solution using GitLab remote state enviroments but it ended up causing a lot of issues so i cut it off.
 - Because of no state. The runners will make new security groups and volumes for each apply. This may cause it to reach the quota and fail the terraform apply which causes me to manually have to delete them in openstack
 - This manual completeion made me accidentally delete the runner instance the same day as the due date which caused a lot of headache and made me use precious polishing time on that instead 
 
