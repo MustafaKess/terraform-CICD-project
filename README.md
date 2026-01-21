@@ -3,6 +3,8 @@
 ### Small note!
 This project was originally built on NTNU's own github instance and later cloned and pushed up here. This means when you take a look at github actions it wont show you any history from the runner. But there were atleast 60 workflow runs (be it manual activations on the different environments or automatic triggers on push) 
 
+I would also note that since this project was a part of a university course. The openstack instance that my GitHub runner was active on was shut down at the end of 2025. So any attempt to activate the GitHub actions will fail unless i host a new one. 
+
 <img width="1717" height="714" alt="image" src="https://github.com/user-attachments/assets/d57e8ce9-c688-43f6-bc8d-5974370a466b" />
 
 
